@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="lib\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="ClearScript.Core">
+      <HintPath>lib\ClearScript.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="ClearScript.V8">
+      <HintPath>lib\ClearScript.V8.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
