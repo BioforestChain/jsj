@@ -1,55 +1,55 @@
-﻿using Microsoft.ClearScript;
+﻿using JsjEngine.WebApis.Event;
+using Microsoft.ClearScript;
 using Microsoft.ClearScript.V8;
+using System.Collections.Concurrent;
 
 namespace JsjEngine
 {
-    public partial class JsjEngine
+    public partial class JsjEngine : IDisposable
     {
-        private readonly CallBackEventQueue _eventQueue = new CallBackEventQueue();
+        private readonly Func<V8ScriptEngine> _engineFactory = ()=> { return new V8ScriptEngine(); };
+        private readonly ConcurrentQueue<Event> _eventQueue = new ConcurrentQueue<Event>();
+        private readonly ConcurrentDictionary<int,Timer> _timers = new ConcurrentDictionary<int,Timer>();
         private Thread? _mainThread = null;
         private int _mainThreadRunningSemaphore = 0;
         private bool _engineRunning = true;
-        private V8ScriptEngine? _engine = null;
-
-        public V8ScriptEngine ScriptEngine
+        private V8ScriptEngine _engine;
+        private readonly HttpClient _httpClient = new HttpClient();
+        private readonly ScriptObject _worker;
+        #region constructors
+        public JsjEngine(Func<V8ScriptEngine>? engineFactory = null)
         {
-            get
+            if(engineFactory != null)
             {
-                if (_engine == null)
-                    _engine = GetV8ScriptEngine();
-                return _engine;
+                _engineFactory = engineFactory;
             }
-        }
+            _engine = _engineFactory();
 
-        public void AddHostType(string name, Type type)
+            InitEngine();
+        }
+        public JsjEngine(JsjEngine parent, ScriptObject worker)
         {
-            ScriptEngine.AddHostType(name, type);
+            _engine = _engineFactory();
+            _worker = worker;
+            InitEngine(parent);
         }
+        #endregion
 
-        public void AddHostObject(string name, object obj)
-        {
-            ScriptEngine.AddHostObject(name, obj);
-        }
+        public V8ScriptEngine ScriptEngine => _engine;
 
-        public object Evaluate(string source)
-        {
-            var result = ScriptEngine.Evaluate(source);
-            return result;
-        }
+        public JsjEngine CreateChild(ScriptObject worker) => new JsjEngine(this,worker);
 
-        public void ClearQueue()
-        {
-            _eventQueue.Enqueue(new CallBackEvent(CallBackType.ClearQueue));
-        }
-
-        public bool ExecuteScript(string source, bool block = false)
+        #region entries
+        public void ExecuteScriptSource(string source, bool block = false)
         {
             if (!IsMainThreadRunning)
             {
                 Start();
             }
 
-            _eventQueue.ExecuteScript(source);
+            var @event = new Event(EventType.EvaluateScript);
+            @event.Function = source;
+            _eventQueue.Enqueue(@event);
 
             if (block)
             {
@@ -57,9 +57,17 @@ namespace JsjEngine
                 Stop();
             }
 
-            return true;
         }
-       
+        public void ExecuteScriptFile(string fileUrl)
+        {
+            //todo: relative path 
+            //download file, get source and execute source.
+            var scriptSource = _httpClient.GetStringAsync(fileUrl).Result;//question: download js file, blocking or non-blocking?
+            ExecuteScriptSource(scriptSource);
+        }
+        #endregion
+
+        #region main control
         public bool Start()
         {
             if (IsMainThreadRunning)
@@ -69,13 +77,12 @@ namespace JsjEngine
             else
             {
                 Interlocked.Increment(ref _mainThreadRunningSemaphore);
-                _mainThread = new Thread(new ThreadStart(RunEventLoop)) { Name = "JsjEngine.BackgroundExecutionThread" };
+                _mainThread = new Thread(new ThreadStart(RunEventLoop)) { Name = "JsjEngine.ExecutionThread" };
                 _engineRunning = true;
                 _mainThread.Start();
                 return true;
             }
         }
-
         public void Stop(Action sleepMethod = null)
         {
             if (_mainThread != null)
@@ -117,99 +124,88 @@ namespace JsjEngine
             Stop();
             _engine = null;
         }
-        #region private methods
-
-        private V8ScriptEngine GetV8ScriptEngine()
+        public void AddHostType(string name, Type type)
         {
-            var engine = new V8ScriptEngine();
-            engine.AddHostType("Console", typeof(Console));
-            RegisterTimerApis(engine);
-            return engine;
+            ScriptEngine.AddHostType(name, type);
         }
 
-        private object ExecuteCallBack(ScriptObject callBackFunction, params object[] args)
+        public void AddHostObject(string name, object obj)
         {
-            var result = callBackFunction.Invoke(false, args);
-            return result;
+            ScriptEngine.AddHostObject(name, obj);
+        }
+        #endregion
+
+        #region private methods
+        private void InitEngine(JsjEngine parent = null)
+        {
+            _engine.DocumentSettings.AccessFlags |= DocumentAccessFlags.EnableAllLoading;
+            _engine.AddHostType("Console", typeof(Console));
+            RegisterTimerApis();
+            RegisterWorkerApis(parent);
         }
         private void RunEventLoop()
         {
-            const int sleepTime = 32;
 
             while (_engineRunning)
             {
-                if (_eventQueue.Count > 0)
+                Event @event;
+                while (_eventQueue.TryDequeue(out @event))
                 {
-                    // Execute first all events with no delay
-                    var tempQueue = _eventQueue.GetEventsWithNoDelay();
-                    while (tempQueue.Count > 0)
-                    {
-                        ExecuteEvent(tempQueue.Peek(), tempQueue);
-                    }
+                    HandleEvent(@event);
+                }
 
-                    // Deal with timer event now
-                    Thread.Sleep(sleepTime); // Sleep minimal time
-                    tempQueue = _eventQueue.CloneEventWithDelay();
-                    foreach (var @event in tempQueue)
-                    {
-                        if (@event.ReadyForExecution(sleepTime))
-                        {
-                            ExecuteEvent(@event, null);
-                        }
-                    }
-                    _eventQueue.RemoveDisabled();
-                }
-                else
-                {
-                    Thread.Sleep(sleepTime);
-                }
+                Thread.Sleep(32);
+
             }
+
             Interlocked.Decrement(ref _mainThreadRunningSemaphore);
         }
-        private void ExecuteEvent(CallBackEvent @event, CallBackEventQueue tempQueue)
+        private void HandleEvent(Event @event)
         {
-            if (@event.Enabled)
+            switch (@event.Type)
             {
-                @event.Enabled = false;
-                switch (@event.Type)
-                {
-                    case CallBackType.ClearQueue:
-                        {
-                            _eventQueue.Clear();
-                            break;
-                        }
-                    case CallBackType.EvaluateScript:
-                        {
-                            Evaluate(@event.Source);
-                            break;
-                        }
-                    case CallBackType.TimeOut:
-                        {
-                            ExecuteCallBack(@event.Function);
-                            break;
-                        }
-                    case CallBackType.Interval:
-                        {
-                            @event.Enabled = true;
-                            ExecuteCallBack(@event.Function);
-                            break;
-                        }
-                }
-            }
 
-            _eventQueue.RemoveExecuted(@event, true);
-
-            if (tempQueue != null)
-            {
-                tempQueue.RemoveExecuted(@event, false);
+                case EventType.EvaluateScript:
+                    {
+                        Evaluate(@event.Function);
+                        break;
+                    }
+                case EventType.TimeOut:
+                    {
+                        ExecuteCallBack(@event.ScriptObject);
+                        DisposeTimer(@event.Id);//for settimeout callbacks, once the callback is excuted, the timer should be GCed immediately.
+                        break;
+                    }
+                case EventType.Interval:
+                    {
+                        ExecuteCallBack(@event.ScriptObject);
+                        break;
+                    }
+                case EventType.Triggered:
+                default:
+                    {
+                        HandleTriggeredEvent(@event);
+                        break;
+                    }
             }
         }
+
+
+
         private bool IsMainThreadRunning
         {
             get { return _mainThreadRunningSemaphore > 0; }
         }
         #endregion
 
-
+        public void Dispose()
+        {
+            Stop();
+           _engine.Dispose();
+            foreach(var timerId in _timers.Keys.ToList())
+            {
+               DisposeTimer(timerId);
+            }
+        }
     }
 }
