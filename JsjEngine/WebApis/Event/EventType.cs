@@ -1,6 +1,6 @@
 ﻿namespace JsjEngine.WebApis.Event
 {
-    internal enum EventType
+    public enum EventType
     {
         TimeOut,
         Interval,

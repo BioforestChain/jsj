@@ -49,7 +49,7 @@ namespace JsjEngine
         private int EnqueueCallBackEvent(ScriptObject callBack, int delay, EventType eventType)
         {
             var @event = new Event(eventType);
-            @event.ScriptObject = callBack;
+            @event.CallBackFunc = callBack;
             var timerId = @event.Id;
             var dueTime = eventType == EventType.Interval ? 0 : delay;
             var period = eventType == EventType.Interval ? delay : Timeout.Infinite;
@@ -59,7 +59,7 @@ namespace JsjEngine
         }
         private void RegisterTimerApis()
         {
-            _engine.DocumentSettings.AddSystemDocument(string.Format(JsjEngineConstants.SystemModuleSpecifierFormat,"timer")
+            _v8Engine.DocumentSettings.AddSystemDocument(string.Format(JsjEngineConstants.SystemModuleSpecifierFormat,"timer")
                 , ModuleCategory.Standard
                 , timerModuleCode
                 , _ => new Dictionary<string, object> {
@@ -71,10 +71,10 @@ namespace JsjEngine
 
         private const string timerModuleCode = @"
             let context = import.meta;
-            export function setTimeout() {return context.SetTimeout(...arguments);}
-            export function setInterval() {return context.SetInterval(...arguments);}
-            export function clearTimeout() {context.ClearTimer(...arguments);}
-            export function clearInterval() {context.ClearTimer(...arguments);}
+            export function setTimeout(func,delay) {return context.SetTimeout(func,delay);}
+            export function setInterval(func,delay) {return context.SetInterval(func,delay);}
+            export function clearTimeout(id) {context.ClearTimer(id);}
+            export function clearInterval(id) {context.ClearTimer(id);}
         ";
 
     }

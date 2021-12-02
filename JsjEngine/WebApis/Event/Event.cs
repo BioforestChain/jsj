@@ -7,13 +7,14 @@ using System.Threading.Tasks;
 
 namespace JsjEngine.WebApis.Event
 {
-    internal class Event
+    public class Event
     {
         private static int _idCounter = 0;
         private EventType _type;
         private int _id;
-        internal ScriptObject? ScriptObject;
-        internal string? Function;
+        internal ScriptObject? CallBackFunc;
+        internal ScriptObject? HandlerContainer;
+        internal string? SourceCode;
         internal string? Data;
 
         public Event(EventType type)
@@ -23,8 +24,8 @@ namespace JsjEngine.WebApis.Event
         }
 
         #region properties
-        internal int Id => _id;
-        internal EventType Type => _type;
+        public int Id => _id;
+        public EventType Type => _type;
         #endregion
 
         

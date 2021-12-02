@@ -12,10 +12,10 @@ namespace JsjEngine
     {
         private void RegisterModuleApis()
         {
-            _engine.AddHostType("Console", typeof(Console));
-            _engine.DocumentSettings.AccessFlags |= DocumentAccessFlags.EnableAllLoading;
-            _engine.DocumentSettings.Loader = new JsjDocumentLoader(this);
-            _engine.DocumentSettings.LoadCallback = InitiateDocumentInfo;
+            _v8Engine.AddHostType("Console", typeof(Console));
+            _v8Engine.DocumentSettings.AccessFlags |= DocumentAccessFlags.EnableAllLoading;
+            _v8Engine.DocumentSettings.Loader = new JsjDocumentLoader(this);
+            _v8Engine.DocumentSettings.LoadCallback = InitiateDocumentInfo;
         }
 
 

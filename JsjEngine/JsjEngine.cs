@@ -7,36 +7,38 @@ namespace JsjEngine
 {
     public partial class JsjEngine : IDisposable
     {
-        private readonly Func<V8ScriptEngine> _engineFactory = ()=> { return new V8ScriptEngine(); };
+        private readonly Func<V8ScriptEngine> _v8EngineFactory = ()=> { return new V8ScriptEngine(); };
         private readonly ConcurrentQueue<Event> _eventQueue = new ConcurrentQueue<Event>();
         private readonly ConcurrentDictionary<int,Timer> _timers = new ConcurrentDictionary<int,Timer>();
         private Thread? _mainThread = null;
         private int _mainThreadRunningSemaphore = 0;
         private bool _engineRunning = true;
-        private V8ScriptEngine _engine;
+        private V8ScriptEngine _v8Engine;
         private readonly HttpClient _httpClient = new HttpClient();
-        private readonly ScriptObject _worker;
+        private readonly ScriptObject? _v8Worker;
+
         #region constructors
         public JsjEngine(Func<V8ScriptEngine>? engineFactory = null)
         {
             if(engineFactory != null)
             {
-                _engineFactory = engineFactory;
+                _v8EngineFactory = engineFactory;
             }
-            _engine = _engineFactory();
+            _v8Engine = _v8EngineFactory();
 
             InitEngine();
         }
         public JsjEngine(JsjEngine parent, ScriptObject worker)
         {
-            _engine = _engineFactory();
-            _worker = worker;
+            _v8Engine = _v8EngineFactory();
+            _v8Worker = worker;
             InitEngine(parent);
         }
         #endregion
 
-        public V8ScriptEngine ScriptEngine => _engine;
-
+        public V8ScriptEngine ScriptEngine => _v8Engine;
+        public ScriptObject Worker => _v8Worker;
+        public bool IsMainThread => _v8Worker == null;
         public JsjEngine CreateChild(ScriptObject worker) => new JsjEngine(this,worker);
 
         #region entries
@@ -48,7 +50,7 @@ namespace JsjEngine
             }
 
             var @event = new Event(EventType.EvaluateScript);
-            @event.Function = source;
+            @event.SourceCode = source;
             _eventQueue.Enqueue(@event);
 
             if (block)
@@ -117,6 +119,7 @@ namespace JsjEngine
         {
             RegisterModuleApis();
             RegisterTimerApis();
+            RegisterMessageChannelApis();//channel api must be registered before worker api as the later depends on the former
             RegisterWorkerApis(parent);
         }
         private void RunEventLoop()
@@ -143,18 +146,18 @@ namespace JsjEngine
 
                 case EventType.EvaluateScript:
                     {
-                        Evaluate(@event.Function);
+                        Evaluate(@event.SourceCode);
                         break;
                     }
                 case EventType.TimeOut:
                     {
-                        ExecuteCallBack(@event.ScriptObject);
+                        ExecuteCallBack(@event.CallBackFunc);
                         DisposeTimer(@event.Id);//for settimeout callbacks, once the callback is excuted, the timer should be GCed immediately.
                         break;
                     }
                 case EventType.Interval:
                     {
-                        ExecuteCallBack(@event.ScriptObject);
+                        ExecuteCallBack(@event.CallBackFunc);
                         break;
                     }
                 case EventType.Triggered:
@@ -178,7 +181,7 @@ namespace JsjEngine
         {
             Stop();
             //_engine.DocumentSettings.Loader.DiscardCachedDocuments();
-            _engine.Dispose();
+            _v8Engine.Dispose();
             foreach(var timerId in _timers.Keys.ToList())
             {
                DisposeTimer(timerId);
