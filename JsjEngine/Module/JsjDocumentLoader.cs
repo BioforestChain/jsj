@@ -10,8 +10,8 @@ namespace JsjEngine.Module
 {
     internal class JsjDocumentLoader : DocumentLoader
     {
-        private readonly JsjEngine _engine;
-        public JsjDocumentLoader(JsjEngine engine)
+        private readonly JsjRuntime _engine;
+        public JsjDocumentLoader(JsjRuntime engine)
         {
             _engine = engine;
         }
@@ -21,7 +21,6 @@ namespace JsjEngine.Module
             {
                 //todo: load module code from database, and add to module cache.
             }
-
 
             return Default.LoadDocumentAsync(settings, sourceInfo, specifier, category, contextCallback);
         }

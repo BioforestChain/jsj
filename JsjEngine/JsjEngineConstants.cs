@@ -8,6 +8,6 @@ namespace JsjEngine
 {
     internal static class JsjEngineConstants
     {
-        public const string SystemModuleSpecifierFormat = "@jsj/system/{0}";
+        public const string SystemModuleSpecifierFormat = "@jsj/internal/{0}";
     }
 }

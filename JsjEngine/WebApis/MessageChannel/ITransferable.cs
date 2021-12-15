@@ -8,15 +8,8 @@ namespace JsjEngine.WebApis.MessageChannel
 {
     public interface ITransferable
     {
-        public JsjEngine EngineContext { get; }
-        public void TransferTo(JsjEngine engine);
-        public bool IsTransferable
-        {
-            get
-            {
-                //todo:
-                return true;
-            }
-        }
+        public JsjRuntime Context { get; }
+        public void TransferTo(JsjRuntime context);
+       
     }
 }

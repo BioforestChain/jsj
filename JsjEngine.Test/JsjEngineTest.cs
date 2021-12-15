@@ -1,6 +1,8 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Microsoft.ClearScript.V8;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,10 +12,10 @@ namespace JsjEngine.Test
     [TestClass]
     public abstract class JsjEngineTest
     {
-        private JsjEngine _engine;
+        private JsjRuntime _engine;
         public TestContext TestContext { get; set; }
 
-        public JsjEngine Engine
+        public JsjRuntime Engine
         {
             get { return _engine; }
             set { _engine = value; }
@@ -22,7 +24,20 @@ namespace JsjEngine.Test
         [TestInitialize]
         public virtual void TestInitialize()
         {
-            _engine = new JsjEngine();
+            var _v8EngineFactory = () =>
+            {
+                var v8Engine = new V8ScriptEngine();
+                v8Engine.AddHostType("Console", typeof(Console));
+
+                var libPath = Path.Combine(Directory.GetCurrentDirectory(), @"..\..\..\..\JsjEngine.JavascriptLib");
+                v8Engine.DocumentSettings.SearchPath = string.Join(";", libPath);
+                return v8Engine;
+            };
+
+            _engine = new JsjRuntime(_v8EngineFactory);
+
+
+
         }
 
         [TestCleanup]

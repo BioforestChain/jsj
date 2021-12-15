@@ -8,17 +8,17 @@ namespace JsjEngine.WebApis.MessageChannel
 {
     public abstract class TransferableObject : ITransferable
     {
-        private JsjEngine _engine;
+        private JsjRuntime _context;
 
-        public TransferableObject(JsjEngine engine)
+        public TransferableObject(JsjRuntime context)
         {
-            _engine = engine;
+            _context = context;
         }
-        public JsjEngine EngineContext  => _engine;
+        public JsjRuntime Context  => _context;
 
-        public virtual void TransferTo(JsjEngine context)
+        public virtual void TransferTo(JsjRuntime context)
         {
-            _engine = context;
+            _context = context;
         }
     }
 }

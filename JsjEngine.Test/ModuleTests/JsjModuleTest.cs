@@ -13,7 +13,9 @@ namespace JsjEngine.Test.ModuleTests
             var script = System.IO.File.ReadAllText("../../../ModuleTests/js/timer-api-test.js");
             try
             {
-                Engine.ExecuteScriptSource(script);
+                Engine.PostExecuteScriptCode(script);
+                Engine.WaitForExitAsync().Wait();
+
             }
             catch (Exception ex)
             {

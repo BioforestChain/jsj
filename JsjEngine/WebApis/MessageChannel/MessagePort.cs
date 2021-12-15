@@ -1,5 +1,4 @@
-﻿using JsjEngine.WebApis.Event;
-using Microsoft.ClearScript;
+﻿using Microsoft.ClearScript;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,19 +9,16 @@ namespace JsjEngine.WebApis.MessageChannel
 {
     public class MessagePort: TransferableObject
     {
-        public MessagePort(JsjEngine engine) :base(engine)
+        public MessagePort(JsjRuntime context) :base(context)
         {
         }
 
-        public void PostMessage(string data)
+        public void PostJson(string json)
         {
             //https://nodejs.org/api/worker_threads.html#workerparentport parentPort only makes sense in a "worker" thread
-            if (!EngineContext.IsMainThread)
+            if (!Context.IsMainThread)
             {
-                var @event = new Event.Event(EventType.Triggered);
-                @event.HandlerContainer = EngineContext.Worker;
-                @event.Data = data;
-                EngineContext.PostMessage(@event);
+                Context.PostJson(json, Context.Worker);
             }
            
         }

@@ -10,16 +10,16 @@ namespace JsjEngine.WebApis.MessageChannel
     {
         private readonly MessagePort _port1;
         private readonly MessagePort _port2;
-        private readonly JsjEngine _engine;
-        public MessageChannel(JsjEngine engine)
+        private readonly JsjRuntime _runtime;
+        public MessageChannel(JsjRuntime runtime)
         {
-            _engine = engine;
-            _port1 = new MessagePort(engine);
-            _port2 = new MessagePort(engine);
+            _runtime = runtime;
+            _port1 = new MessagePort(runtime);
+            _port2 = new MessagePort(runtime);
         }
 
 
-        public JsjEngine Engine => _engine;
+        public JsjRuntime Runtime => _runtime;
         public MessagePort Port1 => _port1;
         public MessagePort Port2 => _port2;
     }
